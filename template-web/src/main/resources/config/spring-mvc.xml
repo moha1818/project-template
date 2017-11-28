@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--suppress UnparsedCustomBeanInspection -->
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+						http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+
+
+						http://www.springframework.org/schema/context 
+						http://www.springframework.org/schema/context/spring-context-4.2.xsd
+
+
+						http://www.springframework.org/schema/mvc
+						http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd">
+
+    <bean id="placeholderConfigurer" class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath*:/*.properties</value>
+            </list>
+        </property>
+        <property name="ignoreUnresolvablePlaceholders" value="true"/>
+    </bean>
+
+    <context:component-scan base-package="com.gttown.enterprise,com.gttown.user">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+    </context:component-scan>
+    <bean class="com.gttown.template.common.RestControllerAdvice"/>
+
+    <bean id="validator" class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean">
+        <property name="providerClass" value="org.hibernate.validator.HibernateValidator"/>
+        <!-- 如果不加默认到 使用classpath下的 ValidationMessages.properties -->
+        <property name="validationMessageSource" ref="messageSource"/>
+    </bean>
+
+    <!-- 基于Cookie的本地化解析器 -->
+    <bean id="localeResolver" class="org.springframework.web.servlet.i18n.CookieLocaleResolver">
+        <property name="cookieMaxAge" value="604800"/>
+        <property name="defaultLocale" value="zh_CN"/>
+        <property name="cookieName" value="Language"/>
+        <property name="cookieDomain" value=".egtcp.com"/>
+    </bean>
+
+    <!-- 国际化的消息资源文件（本系统中主要用于显示/错误消息定制） -->
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basenames">
+            <list>
+                <!-- 在web环境中一定要定位到classpath 否则默认到当前web应用下找  -->
+                <value>messages/message</value>
+            </list>
+        </property>
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="cacheSeconds" value="60"/>
+    </bean>
+
+    <mvc:annotation-driven validator="validator">
+        <mvc:message-converters>
+            <ref bean="mappingJacksonHttpMessageConverter"/>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <bean class="com.gttown.common.support.web.validate.ValidateHandelAspect">
+        <property name="outputAllPropError" value="true"/>
+    </bean>
+
+
+    <!-- SPRING MVC 注解 -->
+
+    <bean class="org.springframework.web.servlet.view.BeanNameViewResolver">
+        <property name="order" value="-1"/>
+    </bean>
+    <!--错误JsonView-->
+    <bean id="errorJsonView" class="com.gttown.common.support.web.view.ErrorJsonView"/>
+
+    <!-- View Resolver for JSP files -->
+    <bean id="jspViewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver" p:order="1">
+        <property name="prefix" value="/WEB-INF/pages"/>
+        <property name="suffix" value=".jsp"/>
+        <property name="redirectHttp10Compatible" value="false"/>
+    </bean>
+
+    <!--responseStatus和responseBody异常处理器-->
+    <bean id="responseStatusAndBodyExceptionResolver"
+          class="com.gttown.common.support.web.handler.ResponseStatusAndBodyExceptionResolver">
+        <property name="order" value="-1"/>
+    </bean>
+
+    <!-- 统一异常处理 具有集成简单、有良好的扩展性、对已有代码没有入侵性 -->
+    <bean id="exceptionResolver" class="com.gttown.common.support.exception.CustomSimpleMappingExceptionResolver">
+        <property name="defaultErrorView" value="/error/500"/>
+        <property name="exceptionAttribute" value="ex"/>
+        <property name="exceptionMappings">
+            <props>
+                <!-- 自定义业务异常 -->
+                <prop key="com.gttown.common.support.exception.BizException">/error/biz</prop>
+                <!-- 可再添加 -->
+            </props>
+        </property>
+        <!-- 默认HTTP错误状态码 -->
+        <property name="defaultStatusCode" value="500"/>
+        <!-- 将路径映射为错误码，供前端获取。 -->
+        <property name="statusCodes">
+            <props>
+                <prop key="/error/500">500</prop>
+                <prop key="/error/590">590</prop>
+            </props>
+        </property>
+    </bean>
+    <!-- 避免IE执行AJAX时,返回JSON出现下载文件 -->
+    <bean id="mappingJacksonHttpMessageConverter"
+          class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+        <property name="supportedMediaTypes">
+            <list>
+                <value>application/json;charset=UTF-8</value>
+            </list>
+        </property>
+        <property name="objectMapper" ref="objectMapper"/>
+    </bean>
+
+    <!-- SPRING上传配置 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="maxUploadSize" value="10485760"/>
+        <property name="maxInMemorySize" value="4096"/>
+    </bean>
+
+    <!--防止重复提交-->
+    <mvc:interceptors>
+        <!--<mvc:interceptor>-->
+        <!--<mvc:mapping path="/**"/>-->
+        <!--<bean class="com.gttown.common.support.web.interceptor.RequestTimeInterceptor">-->
+        <!--<property name="ifLogRequestTime" value="true"/>-->
+        <!--</bean>-->
+        <!--</mvc:interceptor>-->
+        <mvc:interceptor>
+            <mvc:mapping path="/**"/>
+            <bean class="com.gttown.common.support.interceptor.AvoidDuplicateSubmissionInterceptor"/>
+        </mvc:interceptor>
+
+        <mvc:interceptor>
+            <mvc:mapping path="/**"/>
+            <bean class="com.gttown.common.auth.interceptor.AuthInterceptor"/>
+        </mvc:interceptor>
+        <mvc:interceptor>
+            <mvc:mapping path="/subaccount/**"/>
+            <bean class="com.gttown.common.auth.interceptor.MarjoAccountInterceptor"/>
+        </mvc:interceptor>
+
+    </mvc:interceptors>
+
+    <import resource="classpath:spring-apidoc.xml"/>
+
+    <mvc:cors>
+        <mvc:mapping path="/**" allowed-origins="*" allowed-headers="*" allow-credentials="true" max-age="1800"
+                     allowed-methods="GET,POST,DELETE,PUT,OPTIONS"/>
+    </mvc:cors>
+</beans>

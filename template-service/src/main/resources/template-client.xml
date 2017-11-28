@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+
+
+
+
+    http://cxf.apache.org/jaxws
+    http://cxf.apache.org/schemas/jaxws.xsd">
+    <import resource="classpath:META-INF/cxf/cxf.xml"/>
+    <!--<context:property-placeholder location="classpath:cxf.properties" order="-1" ignore-unresolvable="true"/>-->
+
+    <bean id="wss4jOutConfiguration" class="org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor">
+        <property name="properties">
+            <map>
+                <!-- 设置加密类型 ,服务端需要和这里的设置保持一致 -->
+                <entry key="action" value="UsernameToken"/>
+                <entry key="user" value="client"/>
+                <!-- 设置密码为明文 ,服务端需要和这里的设置保持一致 -->
+                <entry key="passwordType" value="PasswordText"/>
+                <entry key="passwordCallbackRef">
+                    <ref bean="passwordCallback"/>
+                </entry>
+            </map>
+        </property>
+    </bean>
+    <bean id="passwordCallback" class="com.gttown.common.soa.support.handler.WsClinetAuthHandler"/>
+
+    <jaxws:client id="templateClient" serviceClass="com.gttown.template.service.TemplateService"
+                  address="${user.cxf.domain}/ws/template"
+    >
+        <jaxws:outInterceptors>
+            <ref bean="wss4jOutConfiguration"/>
+        </jaxws:outInterceptors>
+        <jaxws:properties>
+            <entry key="set-jaxb-validation-event-handler" value="false"/>
+        </jaxws:properties>
+    </jaxws:client>
+
+</beans>
